@@ -3,6 +3,7 @@ import { immer } from "zustand/middleware/immer";
 import { diceSets } from "../sets/diceSets";
 import { Dice } from "../types/Dice";
 import { DiceSet } from "../types/DiceSet";
+import { DiceType } from "../types/DiceType";
 import { Die } from "../types/Die";
 import { generateDiceId } from "../helpers/generateDiceId";
 
@@ -29,6 +30,12 @@ interface DiceControlsState {
   toggleDiceHidden: () => void;
   setDiceRollPressTime: (time: number | null) => void;
   toggleFairnessTester: () => void;
+  applyExternalRoll: (params: {
+    countsByType: Partial<Record<DiceType, number>>;
+    bonus: number;
+    advantage: Advantage;
+    hidden?: boolean;
+  }) => void;
 }
 
 const initialSet = diceSets[0];
@@ -116,6 +123,27 @@ export const useDiceControlsStore = create<DiceControlsState>()(
     toggleFairnessTester() {
       set((state) => {
         state.fairnessTesterOpen = !state.fairnessTesterOpen;
+      });
+    },
+    applyExternalRoll({ countsByType, bonus, advantage, hidden }) {
+      set((state) => {
+        state.diceCounts = { ...state.defaultDiceCounts };
+        for (const [type, count] of Object.entries(countsByType)) {
+          if (!count || count <= 0) continue;
+          const matchingDie = state.diceSet.dice.find(
+            (die) => die.type === type
+          );
+          if (matchingDie) {
+            state.diceCounts[matchingDie.id] = count;
+          }
+        }
+        state.diceBonus = bonus;
+        state.diceAdvantage = advantage;
+        if (typeof hidden === "boolean") {
+          state.diceHidden = hidden;
+        }
+        state.fairnessTesterOpen = false;
+        state.diceRollPressTime = null;
       });
     },
   }))
