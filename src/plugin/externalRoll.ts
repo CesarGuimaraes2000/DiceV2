@@ -26,6 +26,7 @@ export interface ExternalRollRequest {
 export interface NormalizedExternalRoll {
   id: string;
   countsByType: Partial<Record<DiceType, number>>;
+  dice?: Partial<Record<DiceType, number>>;
   bonus: number;
   advantage: Advantage;
   hidden?: boolean;
@@ -101,6 +102,7 @@ export function parseExternalRollRequest(
 
   const hasPayloadField =
     raw.dice !== undefined ||
+    raw.countsByType !== undefined ||
     raw.notation !== undefined ||
     raw.bonus !== undefined ||
     raw.advantage !== undefined;
@@ -119,11 +121,13 @@ export function parseExternalRollRequest(
     notationBonus = parsed.bonus;
   }
 
-  if (isRecord(raw.dice)) {
-    for (const [key, val] of Object.entries(raw.dice)) {
-      const type = normalizeDiceType(key);
-      if (type && typeof val === "number" && Number.isFinite(val) && val > 0) {
-        countsByType[type] = Math.min(20, Math.floor(val));
+  for (const diceMap of [raw.countsByType, raw.dice]) {
+    if (isRecord(diceMap)) {
+      for (const [key, val] of Object.entries(diceMap)) {
+        const type = normalizeDiceType(key);
+        if (type && typeof val === "number" && Number.isFinite(val) && val > 0) {
+          countsByType[type] = Math.min(20, Math.floor(val));
+        }
       }
     }
   }
@@ -140,6 +144,7 @@ export function parseExternalRollRequest(
   return {
     id,
     countsByType,
+    dice: countsByType,
     bonus,
     advantage: parseAdvantage(raw.advantage),
     hidden: typeof raw.hidden === "boolean" ? raw.hidden : undefined,
