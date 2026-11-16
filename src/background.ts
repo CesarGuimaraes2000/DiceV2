@@ -1,4 +1,5 @@
-import OBR from "@owlbear-rodeo/sdk";
+import OBR, { Player } from "@owlbear-rodeo/sdk";
+import { buildRollLogEntry, recordRollLogEntry } from "./controls/history";
 import { getPluginId } from "./plugin/getPluginId";
 import {
   EXTERNAL_ROLL_CHANNEL,
@@ -8,6 +9,7 @@ import {
   readStorageString,
   writeStorageString,
 } from "./plugin/externalRoll";
+import { DiceRoll } from "./types/DiceRoll";
 
 let lastHandledId: string | null = readStorageString(EXTERNAL_ROLL_LAST_ID_KEY);
 
@@ -29,6 +31,30 @@ function handlePlayerMetadata(metadata: Record<string, unknown> | undefined) {
   OBR.action.open();
 }
 
+function handlePartyRollLog(players: Player[]) {
+  const rollKey = getPluginId("roll");
+  const valuesKey = getPluginId("rollValues");
+
+  for (const player of players) {
+    const roll = player.metadata[rollKey] as DiceRoll | undefined;
+    const rollValues = player.metadata[valuesKey] as
+      | Record<string, number | null>
+      | undefined;
+    if (!roll || roll.hidden || !rollValues) continue;
+
+    const entry = buildRollLogEntry({
+      playerId: player.id,
+      playerName: player.name,
+      playerColor: player.color,
+      roll,
+      rollValues,
+    });
+    if (entry) {
+      recordRollLogEntry(entry);
+    }
+  }
+}
+
 OBR.onReady(() => {
   OBR.popover.open({
     id: getPluginId("popover"),
@@ -46,4 +72,7 @@ OBR.onReady(() => {
   OBR.player.onChange((player) => {
     handlePlayerMetadata(player.metadata);
   });
+
+  OBR.party.getPlayers().then(handlePartyRollLog);
+  OBR.party.onChange(handlePartyRollLog);
 });

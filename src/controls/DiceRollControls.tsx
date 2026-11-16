@@ -91,10 +91,13 @@ function DicePickedControls() {
   const diceById = useDiceControlsStore((state) => state.diceById);
   const counts = useDiceControlsStore((state) => state.diceCounts);
   const hidden = useDiceControlsStore((state) => state.diceHidden);
+  const highRoll = useDiceControlsStore((state) => state.diceHighRoll);
   const bonus = useDiceControlsStore((state) => state.diceBonus);
   const setBonus = useDiceControlsStore((state) => state.setDiceBonus);
   const advantage = useDiceControlsStore((state) => state.diceAdvantage);
   const setAdvantage = useDiceControlsStore((state) => state.setDiceAdvantage);
+  const label = useDiceControlsStore((state) => state.diceLabel);
+  const setLabel = useDiceControlsStore((state) => state.setDiceLabel);
 
   const resetDiceCounts = useDiceControlsStore(
     (state) => state.resetDiceCounts
@@ -107,7 +110,10 @@ function DicePickedControls() {
       const dice = getDiceToRoll(counts, advantage, diceById);
       const activeTimeSeconds = (performance.now() - rollPressTime) / 1000;
       const speedMultiplier = Math.max(1, Math.min(10, activeTimeSeconds * 2));
-      startRoll({ dice, bonus, hidden }, speedMultiplier);
+      startRoll(
+        { dice, bonus, hidden, highRoll, label: label ?? undefined },
+        speedMultiplier
+      );
 
       const rolledDiceById: Record<string, Die> = {};
       for (const id of Object.keys(counts)) {
@@ -126,6 +132,7 @@ function DicePickedControls() {
     resetDiceCounts();
     setBonus(0);
     setAdvantage(null);
+    setLabel(null);
   }
 
   const rollPressTime = useDiceControlsStore(
@@ -301,6 +308,34 @@ function DicePickedControls() {
           </Typography>
         )}
       </Stack>
+      {label && (
+        <Stack
+          sx={{
+            position: "absolute",
+            bottom: 14,
+            left: "50%",
+            transform: "translateX(-50%)",
+            pointerEvents: "none",
+            maxWidth: "85%",
+          }}
+        >
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              borderRadius: "999px",
+              bgcolor: "rgba(0, 0, 0, 0.65)",
+              color: "#f6d58a",
+              fontWeight: 600,
+              letterSpacing: 0.3,
+            }}
+          >
+            {label}
+          </Typography>
+        </Stack>
+      )}
     </>
   );
 }
@@ -380,6 +415,24 @@ function FinishedRollControls() {
             expanded={resultsExpanded}
             onExpand={setResultsExpanded}
           />
+        )}
+        {roll?.label && (
+          <Typography
+            variant="caption"
+            sx={{
+              mt: 0.5,
+              px: 1.25,
+              py: 0.25,
+              borderRadius: "999px",
+              bgcolor: "rgba(0, 0, 0, 0.55)",
+              color: "#f6d58a",
+              fontWeight: 600,
+              maxWidth: "220px",
+            }}
+            noWrap
+          >
+            {roll.label}
+          </Typography>
         )}
         {roll?.hidden && (
           <Tooltip title="Hidden Roll" sx={{ pointerEvents: "all" }}>

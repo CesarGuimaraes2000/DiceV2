@@ -127,6 +127,8 @@ export function ExternalRollSync() {
           dice,
           bonus: controls.diceBonus,
           hidden: controls.diceHidden,
+          highRoll: controls.diceHighRoll,
+          label: controls.diceLabel ?? undefined,
         },
         1
       );
@@ -173,6 +175,7 @@ export function ExternalRollSync() {
         bonus: req.bonus,
         advantage: req.advantage,
         hidden: req.hidden,
+        label: req.label,
       });
 
       if (req.autoRoll) {

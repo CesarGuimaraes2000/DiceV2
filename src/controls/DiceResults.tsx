@@ -7,7 +7,10 @@ import Grow from "@mui/material/Grow";
 import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 
-import { getCombinedDiceValue } from "../helpers/getCombinedDiceValue";
+import {
+  getCombinedDiceValue,
+  getHighestDieValue,
+} from "../helpers/getCombinedDiceValue";
 import { DiceRoll } from "../types/DiceRoll";
 import { Die, isDie } from "../types/Die";
 import { Dice, isDice } from "../types/Dice";
@@ -28,6 +31,10 @@ export function DiceResults({
     return getCombinedDiceValue(diceRoll, rollValues);
   }, [diceRoll, rollValues]);
 
+  const highestValue = useMemo(() => {
+    return diceRoll.highRoll ? getHighestDieValue(diceRoll, rollValues) : null;
+  }, [diceRoll, rollValues]);
+
   return (
     <Stack alignItems="center" maxHeight="calc(100vh - 100px)">
       <Tooltip
@@ -35,13 +42,33 @@ export function DiceResults({
         disableInteractive
       >
         <Button
-          sx={{ pointerEvents: "all", padding: 0.5, minWidth: "40px" }}
+          sx={{
+            pointerEvents: "all",
+            padding: 0.5,
+            minWidth: "40px",
+            flexDirection: "column",
+            textTransform: "none",
+          }}
           onClick={() => onExpand(!expanded)}
           color="inherit"
         >
           <Typography variant="h4" color="white">
             {finalValue}
           </Typography>
+          {diceRoll.highRoll && highestValue !== null && (
+            <Typography
+              variant="subtitle2"
+              sx={{
+                color: "#f0bf55",
+                fontWeight: 800,
+                lineHeight: 1.1,
+                mt: 0.25,
+                textShadow: "0 1px 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              {highestValue}
+            </Typography>
+          )}
         </Button>
       </Tooltip>
       <Grow

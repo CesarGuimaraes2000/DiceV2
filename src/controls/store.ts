@@ -18,6 +18,8 @@ interface DiceControlsState {
   diceBonus: number;
   diceAdvantage: Advantage;
   diceHidden: boolean;
+  diceHighRoll: boolean;
+  diceLabel: string | null;
   diceRollPressTime: number | null;
   fairnessTesterOpen: boolean;
   changeDiceSet: (diceSet: DiceSet) => void;
@@ -27,7 +29,9 @@ interface DiceControlsState {
   decrementDieCount: (id: string) => void;
   setDiceAdvantage: (advantage: Advantage) => void;
   setDiceBonus: (bonus: number) => void;
+  setDiceLabel: (label: string | null) => void;
   toggleDiceHidden: () => void;
+  toggleDiceHighRoll: () => void;
   setDiceRollPressTime: (time: number | null) => void;
   toggleFairnessTester: () => void;
   applyExternalRoll: (params: {
@@ -35,6 +39,7 @@ interface DiceControlsState {
     bonus: number;
     advantage: Advantage;
     hidden?: boolean;
+    label?: string;
   }) => void;
 }
 
@@ -51,6 +56,8 @@ export const useDiceControlsStore = create<DiceControlsState>()(
     diceBonus: 0,
     diceAdvantage: null,
     diceHidden: false,
+    diceHighRoll: false,
+    diceLabel: null,
     diceRollPressTime: null,
     fairnessTesterOpen: false,
     changeDiceSet(diceSet) {
@@ -77,6 +84,7 @@ export const useDiceControlsStore = create<DiceControlsState>()(
     resetDiceCounts() {
       set((state) => {
         state.diceCounts = state.defaultDiceCounts;
+        state.diceLabel = null;
       });
     },
     changeDieCount(id, count) {
@@ -110,9 +118,19 @@ export const useDiceControlsStore = create<DiceControlsState>()(
         state.diceAdvantage = advantage;
       });
     },
+    setDiceLabel(label) {
+      set((state) => {
+        state.diceLabel = label;
+      });
+    },
     toggleDiceHidden() {
       set((state) => {
         state.diceHidden = !state.diceHidden;
+      });
+    },
+    toggleDiceHighRoll() {
+      set((state) => {
+        state.diceHighRoll = !state.diceHighRoll;
       });
     },
     setDiceRollPressTime(time) {
@@ -125,7 +143,7 @@ export const useDiceControlsStore = create<DiceControlsState>()(
         state.fairnessTesterOpen = !state.fairnessTesterOpen;
       });
     },
-    applyExternalRoll({ countsByType, bonus, advantage, hidden }) {
+    applyExternalRoll({ countsByType, bonus, advantage, hidden, label }) {
       set((state) => {
         state.diceCounts = { ...state.defaultDiceCounts };
         for (const [type, count] of Object.entries(countsByType)) {
@@ -139,6 +157,7 @@ export const useDiceControlsStore = create<DiceControlsState>()(
         }
         state.diceBonus = bonus;
         state.diceAdvantage = advantage;
+        state.diceLabel = label ?? null;
         if (typeof hidden === "boolean") {
           state.diceHidden = hidden;
         }

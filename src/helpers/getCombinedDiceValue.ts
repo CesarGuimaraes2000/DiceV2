@@ -82,3 +82,39 @@ export function getCombinedDiceValue(
     return currentValues.reduce((a, b) => a + b) + bonus;
   }
 }
+
+function collectIndividualDieValues(
+  dice: Dice,
+  values: Record<string, number>,
+  out: number[]
+): void {
+  const d100Value = checkD100Combination(
+    { dice: dice.dice, combination: dice.combination },
+    values
+  );
+  if (d100Value !== null) {
+    out.push(d100Value);
+    return;
+  }
+
+  for (const dieOrDice of dice.dice) {
+    if (isDie(dieOrDice)) {
+      const value = values[dieOrDice.id];
+      if (value !== undefined) {
+        out.push(value === 0 && dieOrDice.type === "D10" ? 10 : value);
+      }
+    } else if (isDice(dieOrDice)) {
+      collectIndividualDieValues(dieOrDice, values, out);
+    }
+  }
+}
+
+/** Returns the single highest individual die result in the roll (without modifiers). */
+export function getHighestDieValue(
+  dice: Dice,
+  values: Record<string, number>
+): number | null {
+  const collected: number[] = [];
+  collectIndividualDieValues(dice, values, collected);
+  return collected.length > 0 ? Math.max(...collected) : null;
+}

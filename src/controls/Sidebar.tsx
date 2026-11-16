@@ -6,6 +6,7 @@ import { DiceSetPicker } from "./DiceSetPicker";
 import { DicePicker } from "./DicePicker";
 import { DiceExtras } from "./DiceExtras";
 import { DiceHidden } from "./DiceHidden";
+import { DiceHighRoll } from "./DiceHighRoll";
 import { DiceHistory } from "./DiceHistory";
 
 import { FairnessTesterButton } from "../tests/FairnessTesterButton";
@@ -31,6 +32,7 @@ export function Sidebar() {
         <DicePicker />
         <Divider flexItem sx={{ mx: 1 }} />
         <DiceHidden />
+        <DiceHighRoll />
         <DiceExtras />
         <DiceHistory />
         <FairnessTesterButton />

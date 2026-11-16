@@ -6,4 +6,6 @@ import { Dice } from "./Dice";
  */
 export interface DiceRoll extends Dice {
   hidden?: boolean;
+  label?: string;
+  highRoll?: boolean;
 }

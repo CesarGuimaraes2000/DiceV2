@@ -11,6 +11,7 @@ import Paper from "@mui/material/Paper";
 import ButtonBase from "@mui/material/ButtonBase";
 
 import environment from "../environment.hdr";
+import { getHighestDieValue } from "../helpers/getCombinedDiceValue";
 import { usePlayerDice } from "./usePlayerDice";
 import { PlayerDiceRoll } from "./PlayerDiceRoll";
 import { AudioListenerProvider } from "../audio/AudioListenerProvider";
@@ -27,8 +28,18 @@ export function PopoverTray({
   onToggle: (connectionId: string, show: boolean) => void;
   onOpen: (connectionId: string) => void;
 }) {
-  const { diceRoll, finalValue, finishedRolling, finishedRollTransforms } =
-    usePlayerDice(player);
+  const {
+    diceRoll,
+    finalValue,
+    finishedRollValues,
+    finishedRolling,
+    finishedRollTransforms,
+  } = usePlayerDice(player);
+
+  const highestValue =
+    finishedRolling && diceRoll?.highRoll && finishedRollValues
+      ? getHighestDieValue(diceRoll, finishedRollValues)
+      : null;
 
   const theme = useTheme();
 
@@ -111,7 +122,17 @@ export function PopoverTray({
               noWrap
             >
               {player?.name}
-              {finishedRolling && <span> | {finalValue}</span>}
+              {finishedRolling && (
+                <>
+                  <span> | {finalValue}</span>
+                  {highestValue !== null && (
+                    <span style={{ color: "#f0bf55", fontWeight: 700 }}>
+                      {" "}
+                      ({highestValue})
+                    </span>
+                  )}
+                </>
+              )}
             </Typography>
           </Paper>
         </ButtonBase>
