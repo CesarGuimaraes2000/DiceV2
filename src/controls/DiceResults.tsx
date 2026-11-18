@@ -135,7 +135,13 @@ function DiceResultsExpanded({
         {die.map((d, i) => (
           <Stack direction="row" key={d.id} gap={1}>
             <DicePreview diceStyle={d.style} diceType={d.type} size="small" />
-            <Typography lineHeight="28px" color="white">
+            <Typography
+              lineHeight="28px"
+              color={
+                d.exploded ? "#ff9800" : d.primary ? "#ffb74d" : "white"
+              }
+              fontWeight={d.exploded || d.primary ? 700 : undefined}
+            >
               {rollValues[d.id]}
             </Typography>
             {i < die.length - 1 && (

@@ -52,6 +52,7 @@ export function DiceRollSync() {
           const ids = getDieFromDice(state.roll).map((die) => die.id);
           const allRolled =
             ids.length > 0 &&
+            !state.pendingExplosion &&
             Object.values(state.rollValues).every((value) => value !== null);
 
           if (prevIds.current.length !== ids.length) {

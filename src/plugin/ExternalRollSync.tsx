@@ -118,7 +118,8 @@ export function ExternalRollSync() {
       const dice = getDiceToRoll(
         controls.diceCounts,
         controls.diceAdvantage,
-        controls.diceById
+        controls.diceById,
+        controls.diceExplode
       );
       if (dice.length === 0) return;
 
@@ -128,6 +129,7 @@ export function ExternalRollSync() {
           bonus: controls.diceBonus,
           hidden: controls.diceHidden,
           highRoll: controls.diceHighRoll,
+          explode: controls.diceExplode,
           label: controls.diceLabel ?? undefined,
         },
         1

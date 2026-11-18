@@ -2,7 +2,9 @@ import create from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { diceSets } from "../sets/diceSets";
 import { Dice } from "../types/Dice";
+import { ExplodeMode, normalizeExplodeMode } from "../types/DiceRoll";
 import { DiceSet } from "../types/DiceSet";
+import { DiceStyle } from "../types/DiceStyle";
 import { DiceType } from "../types/DiceType";
 import { Die } from "../types/Die";
 import { generateDiceId } from "../helpers/generateDiceId";
@@ -19,6 +21,7 @@ interface DiceControlsState {
   diceAdvantage: Advantage;
   diceHidden: boolean;
   diceHighRoll: boolean;
+  diceExplode: ExplodeMode;
   diceLabel: string | null;
   diceRollPressTime: number | null;
   fairnessTesterOpen: boolean;
@@ -32,6 +35,7 @@ interface DiceControlsState {
   setDiceLabel: (label: string | null) => void;
   toggleDiceHidden: () => void;
   toggleDiceHighRoll: () => void;
+  toggleDiceExplode: () => void;
   setDiceRollPressTime: (time: number | null) => void;
   toggleFairnessTester: () => void;
   applyExternalRoll: (params: {
@@ -57,6 +61,7 @@ export const useDiceControlsStore = create<DiceControlsState>()(
     diceAdvantage: null,
     diceHidden: false,
     diceHighRoll: false,
+    diceExplode: false,
     diceLabel: null,
     diceRollPressTime: null,
     fairnessTesterOpen: false,
@@ -133,6 +138,17 @@ export const useDiceControlsStore = create<DiceControlsState>()(
         state.diceHighRoll = !state.diceHighRoll;
       });
     },
+    toggleDiceExplode() {
+      set((state) => {
+        if (state.diceExplode === false) {
+          state.diceExplode = "PRIMARY";
+        } else if (state.diceExplode === "PRIMARY") {
+          state.diceExplode = "ALL";
+        } else {
+          state.diceExplode = false;
+        }
+      });
+    },
     setDiceRollPressTime(time) {
       set((state) => {
         state.diceRollPressTime = time;
@@ -184,14 +200,71 @@ function getDiceByIdFromSet(diceSet: DiceSet) {
   return byId;
 }
 
+const PRIMARY_STYLE_CANDIDATES: DiceStyle[] = [
+  "SUNRISE",
+  "GALAXY",
+  "GEMSTONE",
+  "GLASS",
+  "NEBULA",
+  "IRON",
+  "WALNUT",
+  "SUNSET",
+];
+
+function getPrimaryDieStyle(
+  baseStyle: DiceStyle,
+  otherStyles?: Set<DiceStyle>
+): DiceStyle {
+  const candidates =
+    baseStyle === "SUNRISE" || baseStyle === "SUNSET"
+      ? [
+          "GALAXY" as DiceStyle,
+          ...PRIMARY_STYLE_CANDIDATES.filter((s) => s !== "GALAXY"),
+        ]
+      : PRIMARY_STYLE_CANDIDATES;
+
+  return (
+    candidates.find((s) => s !== baseStyle && !otherStyles?.has(s)) ??
+    candidates.find((s) => s !== baseStyle) ??
+    baseStyle
+  );
+}
+
 /** Generate new dice based off of a set of counts, advantage and die */
 export function getDiceToRoll(
   counts: DiceCounts,
   advantage: Advantage,
-  diceById: Record<string, Die>
+  diceById: Record<string, Die>,
+  explodeMode: ExplodeMode | boolean = false
 ) {
-  const dice: (Die | Dice)[] = [];
+  const mode = normalizeExplodeMode(explodeMode);
   const countEntries = Object.entries(counts);
+
+  const nonPrimaryStylesByType: Partial<Record<DiceType, Set<DiceStyle>>> = {};
+  if (mode === "PRIMARY") {
+    const seenPrimary: Partial<Record<DiceType, boolean>> = {};
+    for (const [id, count] of countEntries) {
+      const die = diceById[id];
+      if (!die || !count || count <= 0) continue;
+      if (!nonPrimaryStylesByType[die.type]) {
+        nonPrimaryStylesByType[die.type] = new Set<DiceStyle>();
+      }
+      const styleSet = nonPrimaryStylesByType[die.type]!;
+      if (!seenPrimary[die.type]) {
+        seenPrimary[die.type] = true;
+        if (count > 1) {
+          styleSet.add(die.style);
+        }
+      } else {
+        styleSet.add(die.style);
+      }
+    }
+  }
+
+  const primaryDice: (Die | Dice)[] = [];
+  const regularDice: (Die | Dice)[] = [];
+  const primaryAssignedForType: Partial<Record<DiceType, boolean>> = {};
+
   for (const [id, count] of countEntries) {
     const die = diceById[id];
     if (!die) {
@@ -199,45 +272,60 @@ export function getDiceToRoll(
     }
     const { style, type } = die;
     for (let i = 0; i < count; i++) {
+      const isPrimary = mode === "PRIMARY" && !primaryAssignedForType[type];
+      if (isPrimary) {
+        primaryAssignedForType[type] = true;
+      }
+      const dieStyle = isPrimary
+        ? getPrimaryDieStyle(style, nonPrimaryStylesByType[type])
+        : style;
+      const primaryProp = isPrimary ? { primary: true as const } : {};
+      const targetList = isPrimary ? primaryDice : regularDice;
+
       if (advantage === null) {
         if (type === "D100") {
           // Push a d100 and d10 when rolling a d100
-          dice.push({
+          targetList.push({
             dice: [
-              { id: generateDiceId(), style, type: "D100" },
-              { id: generateDiceId(), style, type: "D10" },
+              { id: generateDiceId(), style: dieStyle, type: "D100", ...primaryProp },
+              { id: generateDiceId(), style: dieStyle, type: "D10", ...primaryProp },
             ],
           });
         } else {
-          dice.push({ id: generateDiceId(), style, type });
+          targetList.push({
+            id: generateDiceId(),
+            style: dieStyle,
+            type,
+            ...primaryProp,
+          });
         }
       } else {
         // Rolling with advantage or disadvantage
         const combination = advantage === "ADVANTAGE" ? "HIGHEST" : "LOWEST";
         if (type === "D100") {
           // Push 2 d100s and d10s
-          dice.push({
+          targetList.push({
             dice: [
               {
                 dice: [
-                  { id: generateDiceId(), style, type: "D100" },
-                  { id: generateDiceId(), style, type: "D10" },
+                  { id: generateDiceId(), style: dieStyle, type: "D100", ...primaryProp },
+                  { id: generateDiceId(), style: dieStyle, type: "D10", ...primaryProp },
                 ],
               },
               {
                 dice: [
-                  { id: generateDiceId(), style, type: "D100" },
-                  { id: generateDiceId(), style, type: "D10" },
+                  { id: generateDiceId(), style: dieStyle, type: "D100", ...primaryProp },
+                  { id: generateDiceId(), style: dieStyle, type: "D10", ...primaryProp },
                 ],
               },
             ],
             combination,
           });
         } else {
-          dice.push({
+          targetList.push({
             dice: [
-              { id: generateDiceId(), style, type },
-              { id: generateDiceId(), style, type },
+              { id: generateDiceId(), style: dieStyle, type, ...primaryProp },
+              { id: generateDiceId(), style: dieStyle, type, ...primaryProp },
             ],
             combination,
           });
@@ -245,5 +333,5 @@ export function getDiceToRoll(
       }
     }
   }
-  return dice;
+  return [...primaryDice, ...regularDice];
 }

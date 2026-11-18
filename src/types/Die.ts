@@ -7,6 +7,8 @@ export interface Die {
   id: string;
   style: DiceStyle;
   type: DiceType;
+  exploded?: boolean;
+  primary?: boolean;
 }
 
 export function isDie(value: any): value is Die {

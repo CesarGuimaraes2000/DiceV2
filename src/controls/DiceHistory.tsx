@@ -18,7 +18,9 @@ import NoHistoryIcon from "@mui/icons-material/ManageSearchRounded";
 import HistoryIcon from "@mui/icons-material/SavedSearchRounded";
 import HiddenIcon from "@mui/icons-material/VisibilityOffRounded";
 
+import { ExplosionIcon } from "../icons/ExplosionIcon";
 import { useDiceRollStore } from "../dice/store";
+import { normalizeExplodeMode } from "../types/DiceRoll";
 import {
   RollLogEntry,
   initRollLogSync,
@@ -31,6 +33,7 @@ export function DiceHistory() {
 
   const hidden = useDiceControlsStore((state) => state.diceHidden);
   const highRoll = useDiceControlsStore((state) => state.diceHighRoll);
+  const explode = useDiceControlsStore((state) => state.diceExplode);
   const diceSet = useDiceControlsStore((state) => state.diceSet);
   const diceById = useDiceControlsStore((state) => state.diceById);
   const setBonus = useDiceControlsStore((state) => state.setDiceBonus);
@@ -70,7 +73,16 @@ export function DiceHistory() {
         mappedCounts[match.id] = count;
       }
     }
-    const dice = getDiceToRoll(mappedCounts, entry.advantage, diceById);
+    const effectiveExplode =
+      entry.explode !== undefined
+        ? normalizeExplodeMode(entry.explode)
+        : explode;
+    const dice = getDiceToRoll(
+      mappedCounts,
+      entry.advantage,
+      diceById,
+      effectiveExplode
+    );
     if (dice.length === 0) return;
 
     startRoll(
@@ -79,6 +91,7 @@ export function DiceHistory() {
         bonus: entry.bonus,
         hidden,
         highRoll: entry.highRoll ?? highRoll,
+        explode: effectiveExplode,
         label: entry.label,
       },
       1
@@ -185,6 +198,8 @@ function RollLogCard({
     entry.countsByType && Object.keys(entry.countsByType).length > 0
   );
   const isHighRoll = entry.highRoll === true;
+  const explodeMode = normalizeExplodeMode(entry.explode);
+  const isExplode = Boolean(explodeMode);
   const highestVal =
     entry.highestDieValue !== undefined
       ? entry.highestDieValue
@@ -241,6 +256,20 @@ function RollLogCard({
                 <HighRollIcon sx={{ fontSize: 13, color: "#f0bf55" }} />
               </Tooltip>
             )}
+            {isExplode && (
+              <Tooltip
+                title={
+                  explodeMode === "PRIMARY"
+                    ? "Exploding Die: Primary"
+                    : "Exploding Die: All"
+                }
+              >
+                <ExplosionIcon
+                  mode={explodeMode}
+                  sx={{ fontSize: 13, color: "#ff9800" }}
+                />
+              </Tooltip>
+            )}
             {entry.hidden && (
               <Tooltip title="Hidden Roll">
                 <HiddenIcon sx={{ fontSize: 13, opacity: 0.7 }} />
@@ -253,7 +282,7 @@ function RollLogCard({
             </Typography>
             <IconButton
               size="small"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation();
                 onDelete();
               }}
@@ -308,40 +337,78 @@ function RollLogCard({
               const isNat1 = d.kept && d.type === "D20" && d.value === 1;
               const isHighestGold =
                 isHighRoll && highestVal !== null && d.value === highestVal;
+              const isPrimaryDie =
+                explodeMode === "PRIMARY" && Boolean(d.primary);
+              const canDieExplode =
+                explodeMode === "ALL" || Boolean(d.primary || d.exploded);
+              const isExplodedOrange =
+                isExplode &&
+                !isHighestGold &&
+                canDieExplode &&
+                Boolean(d.exploded || (d.kept && d.maxRoll));
               return (
                 <Box
                   key={i}
                   component="span"
+                  title={isPrimaryDie ? "Primary Exploding Die" : undefined}
                   sx={{
-                    px: 0.6,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.25,
+                    px: isPrimaryDie ? 0.7 : 0.6,
                     py: 0.1,
-                    borderRadius: 0.75,
+                    borderRadius: isPrimaryDie ? "999px" : 0.75,
                     fontSize: 11,
                     fontWeight: 700,
                     lineHeight: 1.3,
                     opacity: d.kept ? 1 : 0.45,
                     textDecoration: d.kept ? "none" : "line-through",
                     border: isHighestGold
-                      ? "1px solid rgba(240, 191, 85, 0.7)"
-                      : undefined,
+                      ? isPrimaryDie
+                        ? "1.5px solid #f0bf55"
+                        : "1px solid rgba(240, 191, 85, 0.7)"
+                      : isExplodedOrange
+                        ? isPrimaryDie
+                          ? "1.5px solid #ff9800"
+                          : "1px solid rgba(255, 152, 0, 0.7)"
+                        : isPrimaryDie
+                          ? "1px dashed rgba(255, 152, 0, 0.8)"
+                          : undefined,
                     bgcolor: isHighestGold
                       ? "rgba(240, 191, 85, 0.25)"
-                      : isNat20
-                        ? "rgba(79, 209, 139, 0.2)"
-                        : isNat1
-                          ? "rgba(240, 100, 110, 0.2)"
-                          : theme.palette.mode === "dark"
-                            ? "rgba(255, 255, 255, 0.08)"
-                            : "rgba(0, 0, 0, 0.08)",
+                      : isExplodedOrange
+                        ? "rgba(255, 152, 0, 0.22)"
+                        : isNat20
+                          ? "rgba(79, 209, 139, 0.2)"
+                          : isNat1
+                            ? "rgba(240, 100, 110, 0.2)"
+                            : isPrimaryDie
+                              ? "rgba(255, 152, 0, 0.12)"
+                              : theme.palette.mode === "dark"
+                                ? "rgba(255, 255, 255, 0.08)"
+                                : "rgba(0, 0, 0, 0.08)",
                     color: isHighestGold
                       ? "#f0bf55"
-                      : isNat20
-                        ? "#4fd18b"
-                        : isNat1
-                          ? "#f0646e"
-                          : "text.primary",
+                      : isExplodedOrange
+                        ? "#ff9800"
+                        : isNat20
+                          ? "#4fd18b"
+                          : isNat1
+                            ? "#f0646e"
+                            : isPrimaryDie
+                              ? "#ffb74d"
+                              : "text.primary",
                   }}
                 >
+                  {isPrimaryDie && (
+                    <ExplosionIcon
+                      mode="PRIMARY"
+                      sx={{
+                        fontSize: 10,
+                        color: isHighestGold ? "#f0bf55" : "#ff9800",
+                      }}
+                    />
+                  )}
                   {d.value}
                 </Box>
               );

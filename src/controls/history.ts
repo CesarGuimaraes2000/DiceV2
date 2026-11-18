@@ -1,12 +1,17 @@
 import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { isMaxDieValue } from "../dice/store";
 import {
   getCombinedDiceValue,
   getHighestDieValue,
 } from "../helpers/getCombinedDiceValue";
 import { getDieFromDice } from "../helpers/getDieFromDice";
 import { Dice, isDice } from "../types/Dice";
-import { DiceRoll } from "../types/DiceRoll";
+import {
+  DiceRoll,
+  ExplodeMode,
+  normalizeExplodeMode,
+} from "../types/DiceRoll";
 import { DiceStyle } from "../types/DiceStyle";
 import { DiceType } from "../types/DiceType";
 import { Die, isDie } from "../types/Die";
@@ -28,6 +33,9 @@ export interface RolledDieSummary {
   style: DiceStyle;
   value: number;
   kept: boolean;
+  primary?: boolean;
+  exploded?: boolean;
+  maxRoll?: boolean;
 }
 
 export interface RollLogEntry {
@@ -43,6 +51,7 @@ export interface RollLogEntry {
   finalValue: number;
   highRoll?: boolean;
   highestDieValue?: number;
+  explode?: ExplodeMode | boolean;
   hidden?: boolean;
   dice: RolledDieSummary[];
   countsByType?: Partial<Record<DiceType, number>>;
@@ -219,13 +228,17 @@ function extractRollDetails(
     const v1 = values[d100.id] ?? 0;
     const v2 = values[d10.id] ?? 0;
     const pairTotal = v1 === 0 && v2 === 0 ? 100 : v1 + v2;
+    const isExplodedPair = Boolean(d100.exploded);
     dice.push({
       type: "D100",
       style: d100.style,
       value: pairTotal,
       kept: parentKept,
+      primary: Boolean(d100.primary) || undefined,
+      exploded: isExplodedPair || undefined,
+      maxRoll: pairTotal === 100 || undefined,
     });
-    if (countForNotation) {
+    if (countForNotation && !isExplodedPair) {
       countsByType.D100 = (countsByType.D100 ?? 0) + 1;
     }
     return { dice, advantage, countsByType };
@@ -261,13 +274,17 @@ function extractRollDetails(
     if (isDie(child)) {
       const raw = values[child.id] ?? 0;
       const value = raw === 0 && child.type === "D10" ? 10 : raw;
+      const isExploded = Boolean(child.exploded);
       dice.push({
         type: child.type,
         style: child.style,
         value,
         kept: childKept,
+        primary: Boolean(child.primary) || undefined,
+        exploded: isExploded || undefined,
+        maxRoll: isMaxDieValue(child.type, raw) || undefined,
       });
-      if (shouldCountChild) {
+      if (shouldCountChild && !isExploded) {
         countsByType[child.type] = (countsByType[child.type] ?? 0) + 1;
       }
     } else if (isDice(child)) {
@@ -340,6 +357,13 @@ export function buildRollLogEntry(params: {
       : 0;
   const details = extractRollDetails(roll, finishedValues);
   const highestDieValue = getHighestDieValue(roll, finishedValues);
+  const explodeMode = normalizeExplodeMode(roll.explode);
+  const orderedDice =
+    explodeMode === "PRIMARY"
+      ? [...details.dice].sort(
+          (a, b) => (a.primary ? 0 : 1) - (b.primary ? 0 : 1)
+        )
+      : details.dice;
 
   return {
     id: `${playerId}::${signature}`,
@@ -357,8 +381,9 @@ export function buildRollLogEntry(params: {
     finalValue,
     highRoll: roll.highRoll === true,
     highestDieValue: highestDieValue ?? undefined,
+    explode: explodeMode,
     hidden: roll.hidden,
-    dice: details.dice,
+    dice: orderedDice,
     countsByType: details.countsByType,
   };
 }

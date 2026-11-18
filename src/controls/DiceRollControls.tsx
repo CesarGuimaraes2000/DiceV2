@@ -52,14 +52,18 @@ export function DiceRollControls() {
   );
 
   const rollValues = useDiceRollStore((state) => state.rollValues);
+  const pendingExplosion = useDiceRollStore((state) => state.pendingExplosion);
   const finishedRolling = useMemo(() => {
+    if (pendingExplosion) {
+      return false;
+    }
     const values = Object.values(rollValues);
     if (values.length === 0) {
       return false;
     } else {
       return values.every((value) => value !== null);
     }
-  }, [rollValues]);
+  }, [rollValues, pendingExplosion]);
 
   if (!isDefault) {
     return (
@@ -92,6 +96,7 @@ function DicePickedControls() {
   const counts = useDiceControlsStore((state) => state.diceCounts);
   const hidden = useDiceControlsStore((state) => state.diceHidden);
   const highRoll = useDiceControlsStore((state) => state.diceHighRoll);
+  const explode = useDiceControlsStore((state) => state.diceExplode);
   const bonus = useDiceControlsStore((state) => state.diceBonus);
   const setBonus = useDiceControlsStore((state) => state.setDiceBonus);
   const advantage = useDiceControlsStore((state) => state.diceAdvantage);
@@ -107,11 +112,18 @@ function DicePickedControls() {
 
   function handleRoll() {
     if (hasDice && rollPressTime) {
-      const dice = getDiceToRoll(counts, advantage, diceById);
+      const dice = getDiceToRoll(counts, advantage, diceById, explode);
       const activeTimeSeconds = (performance.now() - rollPressTime) / 1000;
       const speedMultiplier = Math.max(1, Math.min(10, activeTimeSeconds * 2));
       startRoll(
-        { dice, bonus, hidden, highRoll, label: label ?? undefined },
+        {
+          dice,
+          bonus,
+          hidden,
+          highRoll,
+          explode,
+          label: label ?? undefined,
+        },
         speedMultiplier
       );
 
@@ -262,7 +274,7 @@ function DicePickedControls() {
       >
         <Tooltip title="Clear" disableInteractive>
           <IconButton
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.stopPropagation();
               handleReset();
             }}

@@ -9,14 +9,31 @@ export function InteractiveDiceRoll() {
   const roll = useDiceRollStore((state) => state.roll);
   const rollThrows = useDiceRollStore((state) => state.rollThrows);
   const finishDieRoll = useDiceRollStore((state) => state.finishDieRoll);
+  const pendingExplosion = useDiceRollStore((state) => state.pendingExplosion);
+  const spawnExplodingDice = useDiceRollStore(
+    (state) => state.spawnExplodingDice
+  );
 
   const finishedTransforms = useDiceRollStore((state) => {
+    if (state.pendingExplosion) {
+      return undefined;
+    }
     const values = Object.values(state.rollTransforms);
     if (values.some((v) => v === null)) {
       return undefined;
     }
     return state.rollTransforms as Record<string, DiceTransform>;
   });
+
+  useEffect(() => {
+    if (!pendingExplosion) return;
+    const timer = window.setTimeout(() => {
+      spawnExplodingDice();
+    }, 550);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [pendingExplosion, spawnExplodingDice]);
 
   const transformsRef = useRef<Record<string, DiceTransform | null> | null>(
     null
